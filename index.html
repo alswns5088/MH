@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>민혁 인사발령 예측본부</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@500;700;900&display=swap">
+<style>
+/* Layout: 공문(official notice) paper. Map sheet left, 집계표 right; stacks on phones. */
+/* Layout: 알림장 카드 두 장(지도/집계표)이 파스텔 낙서 배경 위에 떠 있는 구성. */
+:root{
+  --paper:#fff3f6; --ink:#2b2340; --ink-2:#6f6587; --line:#f0d8e4; --sheet:#ffffff;
+  --stamp:#ff4f7a; --stamp-soft:#ffe1ea; --accent:#5b52e0; --accent-soft:#e6e3ff; --me:#fff3b0;
+  --sea:#e3f3ff; --land:#dff5e3; --land-line:#7fbf95; --bgimg:var(--tile-light);
+  --display:'Black Han Sans',"Noto Sans KR","Apple SD Gothic Neo",system-ui,sans-serif; --body:'Noto Sans KR',"Apple SD Gothic Neo",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#1d1a2e; --ink:#f3eefb; --ink-2:#b2a9c9; --line:#3a3452; --sheet:#272240;
+  --stamp:#ff6f95; --stamp-soft:#4a2a3a; --accent:#a9a3ff; --accent-soft:#332f55; --me:#4a4322;
+  --sea:#20283d; --land:#2e4036; --land-line:#7fbf95; --bgimg:var(--tile-dark); color-scheme:dark } }
+:root[data-theme="dark"]{
+  --paper:#1d1a2e; --ink:#f3eefb; --ink-2:#b2a9c9; --line:#3a3452; --sheet:#272240;
+  --stamp:#ff6f95; --stamp-soft:#4a2a3a; --accent:#a9a3ff; --accent-soft:#332f55; --me:#4a4322;
+  --sea:#20283d; --land:#2e4036; --land-line:#7fbf95; --bgimg:var(--tile-dark); color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper) var(--bgimg) 0 0/280px 280px repeat;color:var(--ink);font-family:var(--body);font-weight:500;font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--sheet);border:3px solid var(--ink);border-radius:18px;padding:16px 20px;box-shadow:6px 6px 0 var(--stamp-soft)}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink-2)}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,7vw,46px);margin:2px 0 0;line-height:1.1;letter-spacing:-.01em;text-wrap:balance;word-break:keep-all}
+.docno{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.stamp{font-family:var(--display);font-weight:400;color:var(--stamp);border:3px double var(--stamp);border-radius:6px;padding:4px 10px;font-size:18px;letter-spacing:.2em;transform:rotate(-8deg);opacity:.9;white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px;align-items:start}
+@media (max-width:760px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  header{position:relative;padding-right:92px}
+  .stamp{position:absolute;right:14px;top:14px;font-size:15px;padding:3px 8px}
+  svg{max-height:none}
+  body{padding-bottom:170px}
+  .btns{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--sheet);border-top:3px solid var(--ink);
+    padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  .btns .push{padding:9px 6px 6px}
+}
+
+.sheet{background:var(--sheet);border:3px solid var(--ink);border-radius:18px;padding:16px;box-shadow:6px 6px 0 var(--accent-soft)}
+.sheet h2{font-family:var(--body);font-weight:900;font-size:17px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sheet h2 small{font-family:var(--body);font-weight:400;font-size:12px;color:var(--ink-2)}
+
+.mapbox{background:var(--sea);border:2px solid var(--line);border-radius:14px;overflow:hidden}
+svg{display:block;width:100%;height:auto;max-height:70vh}
+.land{fill:var(--land);stroke:var(--land-line);stroke-width:1.2;stroke-linejoin:round}
+.city-dot{fill:var(--sheet);stroke:var(--accent);stroke-width:2}
+.city-dot.active{stroke:var(--stamp)}
+.city-label{font-family:var(--body);font-size:14px;font-weight:900;fill:var(--ink)}
+.city-sub{font-size:9px;fill:var(--ink-2)}
+.ref{fill:var(--land-line)}
+.ref-label{font-size:9px;fill:var(--ink-2)}
+#face{transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion:reduce){#face{transition:none}}
+.face-ring{fill:none;stroke:var(--stamp);stroke-width:3}
+.face-tag{font-size:11px;font-weight:700;fill:var(--sheet)}
+.face-tagbg{fill:var(--stamp)}
+.sea-note{font-size:9px;fill:var(--ink-2)}
+
+.status{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:10px 0 8px}
+.status b{color:var(--ink)}
+
+.btns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:420px){.btns{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.push{font-family:var(--body);font-size:16px;font-weight:900;color:var(--ink);background:var(--sheet);border:2px solid var(--ink);border-radius:12px;padding:12px 6px 8px;box-shadow:3px 3px 0 var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.push small{font-size:11px;font-weight:400;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.push:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);background:var(--accent-soft)}
+.push:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.push.arrived{border-color:var(--stamp);color:var(--stamp)}
+.push:disabled{opacity:.5;cursor:not-allowed}
+
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-weight:700;color:var(--ink-2);font-size:12px}
+th:first-child,td:first-child{text-align:left}
+td:first-child{max-width:110px;overflow:hidden;text-overflow:ellipsis}
+td.total{font-weight:900}
+tr.me td{background:var(--me)}
+.empty{color:var(--ink-2);font-size:13px;padding:10px 0}
+.tablewrap{overflow-x:auto}
+
+.last{margin-top:12px;padding:10px 12px;background:var(--stamp-soft);border-radius:10px;font-size:13px}
+.last b{font-weight:900}
+
+.foot{font-size:12px;color:var(--ink-2);background:var(--sheet);border-radius:12px;padding:8px 12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.linkbtn{font:inherit;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline}
+.notice{background:var(--accent-soft);border:2px solid var(--accent);border-radius:12px;padding:8px 12px;font-size:13px}
+
+/* 입장 */
+.gate{position:fixed;inset:0;background:color-mix(in srgb,var(--paper) 88%,transparent);display:flex;align-items:center;justify-content:center;z-index:20;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.gate form{background:var(--sheet);border:3px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--stamp-soft);padding:22px 20px;width:min(380px,100%);display:flex;flex-direction:column;gap:12px}
+.gate h2{font-family:var(--display);font-weight:400;margin:0;font-size:26px}
+.gate p{margin:0;font-size:13px;color:var(--ink-2)}
+.gate input{font:inherit;font-size:17px;padding:10px 12px;border:2px solid var(--line);background:var(--paper);color:var(--ink);border-radius:10px}
+.gate input:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.gate button{font:inherit;font-weight:900;font-size:16px;padding:12px;background:var(--stamp);color:#fff;border:none;border-radius:12px;cursor:pointer}
+.gate button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">인사발령 예측본부 · 대구지점 발</div>
+      <h1>민혁이는 어디로 가는가</h1>
+      <div class="docno" id="docno">인사-2026-1020호 · 발령 예정지 미정</div>
+    </div>
+    <div class="stamp">발 령</div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="grid">
+    <section class="sheet">
+      <h2>현재 위치 <small>버튼 100번이면 대구→순천 거리</small></h2>
+      <div class="mapbox">
+        <svg id="map" viewBox="0 0 360 640" xmlns="http://www.w3.org/2000/svg" aria-label="대한민국 지도 위 민혁 위치">
+          <defs><clipPath id="faceclip"><circle r="22"/></clipPath></defs>
+          <path id="land" class="land" d=""/>
+          <ellipse class="land" cx="57" cy="605" rx="28" ry="11"/>
+          <text class="sea-note" x="12" y="628">※ 제주 발령 가능성 없음(아직)</text>
+          <g id="cities"></g>
+          <g id="face" transform="translate(237,333)">
+            <circle class="face-ring" r="24"/>
+            <g clip-path="url(#faceclip)">
+              <circle r="22" id="face-bg" fill="#f1d9b5"/>
+              <image id="face-img" href="data:image/jpeg;base64,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" x="-22" y="-22" width="44" height="44" preserveAspectRatio="xMidYMid slice"/>
+              <g id="face-placeholder" fill="#3a2a1a">
+                <circle cx="-7" cy="-4" r="2.4"/><circle cx="7" cy="-4" r="2.4"/>
+                <path d="M-8 6 Q0 13 8 6" fill="none" stroke="#3a2a1a" stroke-width="2" stroke-linecap="round"/>
+                <path d="M-18 -8 Q0 -26 18 -8" fill="#3a2a1a"/>
+              </g>
+            </g>
+            <rect class="face-tagbg" x="-18" y="26" width="36" height="16" rx="3"/>
+            <text class="face-tag" x="0" y="38" text-anchor="middle">민혁</text>
+          </g>
+        </svg>
+      </div>
+      <div class="status">
+        <span>지금 <b id="near">대구</b> 근처 · <b id="moved">0</b>칸 이동</span>
+        <span id="who">입장 전</span>
+      </div>
+      <div class="btns" id="btns"></div>
+    </section>
+
+    <aside class="sheet">
+      <h2>밀기 집계표 <small id="pcount">0명 참여</small></h2>
+      <div class="tablewrap">
+        <table id="board">
+          <thead><tr><th>이름</th><th>진천</th><th>순천</th><th>춘천</th><th>대구</th><th>합계</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="empty">아직 아무도 민혁이를 밀지 않았어요. 첫 번째로 밀어보세요.</div>
+      <div class="last" id="last" hidden></div>
+    </aside>
+  </div>
+
+  <div class="foot">
+    <span>본 예측은 어떠한 법적 효력도 없으며, 민혁이의 실제 발령과 무관합니다.</span>
+    <span><button class="linkbtn" id="rename">이름 바꾸기</button></span>
+  </div>
+</div>
+
+<div class="gate" id="gate">
+  <form id="gateform">
+    <h2>입장 명부</h2>
+    <p>이름을 쓰고 들어오세요. 누가 몇 번 밀었는지 다 기록됩니다.</p>
+    <input id="name" placeholder="이름" maxlength="12" autocomplete="off" required>
+    <button type="submit">입장</button>
+  </form>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+// ---- 배경 낙서 타일 ----
+(function(){
+  const E=(x,y,ch,sz,rot)=>`<text x="${x}" y="${y}" font-size="${sz||26}" transform="rotate(${rot||0} ${x} ${y})">${ch}</text>`;
+  const cloud=(x,y,c)=>`<g fill="${c}"><circle cx="${x}" cy="${y}" r="14"/><circle cx="${x+16}" cy="${y-6}" r="17"/><circle cx="${x+34}" cy="${y}" r="13"/><rect x="${x-10}" y="${y}" width="56" height="14" rx="7"/></g>`;
+  const house=(x,y,c,r)=>`<g><rect x="${x}" y="${y+16}" width="34" height="26" rx="4" fill="${c}"/><path d="M${x-4} ${y+18} L${x+17} ${y} L${x+38} ${y+18} Z" fill="${r}"/><rect x="${x+13}" y="${y+28}" width="9" height="14" rx="2" fill="${r}"/></g>`;
+  const heart=(x,y,c)=>`<path transform="translate(${x} ${y})" d="M0 10 C-14 -2 -6 -14 0 -6 C6 -14 14 -2 0 10 Z" fill="${c}"/>`;
+  const dots=(c)=>[[30,150],[250,60],[140,250],[70,260],[262,180],[120,20],[200,245],[14,230]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3" fill="${c}"/>`).join('');
+  const star=(x,y,c)=>`<path transform="translate(${x} ${y})" d="M0 -11 L3.2 -3.5 L11 -3.5 L4.8 1.5 L7 9 L0 4.5 L-7 9 L-4.8 1.5 L-11 -3.5 L-3.2 -3.5 Z" fill="${c}"/>`;
+  const make=(a,pink,yellow,mint,blue,emojiOp)=>`<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 280 280" opacity="${a}">`
+    +cloud(24,40,blue)+cloud(200,214,blue)
+    +house(176,28,yellow,pink)+house(40,196,mint,pink)
+    +heart(110,96,pink)+heart(236,120,pink)+star(90,160,yellow)+star(254,264,yellow)+dots(mint)
+    +`<g opacity="${emojiOp}">`+E(120,40,'📦',28)+E(16,120,'🚚',30,-8)+E(190,100,'🧳',24,10)+E(148,214,'🐣',26)+E(244,170,'🍎',22)+E(66,246,'🌸',22)+E(214,268,'⭐',18)+E(104,276,'🚌',24)+'</g></svg>';
+  const url=s=>`url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(s)}")`;
+  const r=document.documentElement.style;
+  r.setProperty('--tile-light',url(make(0.9,'#ffb8cc','#ffe58f','#b8ecd0','#c7dcff',1)));
+  r.setProperty('--tile-dark',url(make(0.55,'#ff8fb0','#ffd86b','#8fd9b4','#9fbdff',0.85)));
+})();
+</script>
+<script>
+// ---- 지도: 위경도 → viewBox 좌표 ----
+const px=(lat,lon)=>[+((lon-125.9)*88).toFixed(1), +((38.9-lat)*110).toFixed(1)];
+const outline=[[37.77,126.68],[37.95,126.95],[38.10,127.10],[38.30,127.60],[38.32,128.00],[38.60,128.35],[38.20,128.60],[37.75,128.95],[37.45,129.17],[37.05,129.42],[36.55,129.43],[36.08,129.57],[35.95,129.43],[35.50,129.45],[35.20,129.25],[35.08,129.05],[35.05,128.80],[34.85,128.70],[34.70,128.60],[34.85,128.40],[34.78,128.10],[34.70,127.90],[34.70,127.70],[34.50,127.35],[34.65,127.15],[34.45,126.95],[34.30,126.70],[34.30,126.50],[34.55,126.30],[34.80,126.35],[35.05,126.30],[35.35,126.40],[35.60,126.48],[35.98,126.62],[36.20,126.55],[36.40,126.50],[36.70,126.15],[36.95,126.35],[37.00,126.65],[36.95,126.85],[37.20,126.72],[37.45,126.60],[37.65,126.55]];
+document.getElementById('land').setAttribute('d','M'+outline.map(p=>px(...p).join(',')).join('L')+'Z');
+
+const REGIONS=['진천','순천','춘천','대구'];
+const CITY={진천:{ll:[36.86,127.44],sub:'충북'},순천:{ll:[34.95,127.49],sub:'전남'},춘천:{ll:[37.88,127.73],sub:'강원'},대구:{ll:[35.87,128.60],sub:'현 근무지'}};
+for(const k in CITY){CITY[k].xy=px(...CITY[k].ll)}
+const SEOUL=px(37.57,126.98);
+const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const STEP=dist(CITY.대구.xy,CITY.순천.xy)/100;   // 100번 = 대구→순천
+
+const SVGNS='http://www.w3.org/2000/svg';
+const el=(t,a={},txt)=>{const n=document.createElementNS(SVGNS,t);for(const k in a)n.setAttribute(k,a[k]);if(txt!=null)n.textContent=txt;return n};
+const cities=document.getElementById('cities');
+cities.append(el('circle',{class:'ref',cx:SEOUL[0],cy:SEOUL[1],r:2}),el('text',{class:'ref-label',x:SEOUL[0]-6,y:SEOUL[1]-6},'서울'));
+const dots={};
+for(const k of REGIONS){const [x,y]=CITY[k].xy;
+  dots[k]=el('circle',{class:'city-dot',cx:x,cy:y,r:5});
+  const lx=k==='춘천'||k==='진천'?x-10:x+10, anchor=k==='춘천'||k==='진천'?'end':'start';
+  cities.append(dots[k],el('text',{class:'city-label',x:lx,y:y+5,'text-anchor':anchor},k),el('text',{class:'city-sub',x:lx,y:y+17,'text-anchor':anchor},CITY[k].sub));
+}
+
+// ---- 상태 ----
+let pos=[...CITY.대구.xy], lastRegion='대구', lastBy='';
+let me=null;            // {id,name,counts:{},total}
+let db=null, docRef=null;
+let pending=false, flushTimer=null, writing=false;
+const $=id=>document.getElementById(id);
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+
+function renderPos(){
+  $('face').setAttribute('transform',`translate(${pos[0].toFixed(1)},${pos[1].toFixed(1)})`);
+  let near='대구',best=1e9;
+  for(const k of REGIONS){const d=dist(pos,CITY[k].xy);if(d<best){best=d;near=k}
+    const left=Math.ceil(d/STEP);const b=btn[k];
+    b.querySelector('small').textContent=left===0?'도착!':`${left}번 남음`;
+    b.classList.toggle('arrived',left===0);
+    dots[k].classList.toggle('active',left===0);
+  }
+  $('near').textContent=best<STEP*1.5?near:near+' 쪽';
+  $('moved').textContent=Math.round(dist(pos,CITY.대구.xy)/STEP);
+  const arrived=REGIONS.find(k=>dist(pos,CITY[k].xy)<0.01);
+  $('docno').textContent='인사-2026-1020호 · '+(arrived?`발령 예정지 ${arrived} (확정)`:'발령 예정지 미정');
+  $('last').hidden=!lastBy;
+  if(lastBy)$('last').innerHTML=`마지막으로 민 사람 <b>${esc(lastBy)}</b> → ${esc(lastRegion)} 방향`;
+}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const btn={};
+for(const k of REGIONS){const b=document.createElement('button');b.className='push';b.type='button';b.id='push-'+k;
+  b.innerHTML=`${k}으로<small>…</small>`.replace('으로',k==='진천'||k==='순천'||k==='춘천'?'으로':'로');
+  b.addEventListener('click',()=>push(k));$('btns').append(b);btn[k]=b}
+
+function push(k){
+  if(!me)return;
+  const t=CITY[k].xy,d=dist(pos,t);
+  if(d>0.01){const r=Math.min(1,STEP/d);pos=[pos[0]+(t[0]-pos[0])*r,pos[1]+(t[1]-pos[1])*r];}
+  lastRegion=k;lastBy=me.name;
+  me.counts[k]=(me.counts[k]||0)+1;me.total++;delta[k]=(delta[k]||0)+1;
+  renderPos();renderBoard();
+  pending=true;clearTimeout(flushTimer);flushTimer=setTimeout(flush,350);
+}
+let delta={};
+async function flush(){
+  if(!fs||!docRef||writing){if(writing)flushTimer=setTimeout(flush,300);return}
+  writing=true;pending=false;
+  const d=delta;delta={};
+  try{
+    await fs.doc('state/position').set({x:pos[0],y:pos[1],lastRegion,lastBy,at:Date.now()});
+    const inc=firebase.firestore.FieldValue.increment;
+    const upd={name:me.name,at:Date.now(),total:inc(Object.values(d).reduce((a,b)=>a+b,0))};
+    for(const k in d)upd[k]=inc(d[k]);
+    await docRef.set(upd,{merge:true});
+  }catch(e){for(const k in d)delta[k]=(delta[k]||0)+d[k];showNotice('저장에 실패했어요. 인터넷 연결이나 Firestore 규칙을 확인해 주세요.');}
+  writing=false;
+  if(pending||Object.keys(delta).length)flush();
+}
+
+// ---- 집계표 ----
+let players=[];
+function renderBoard(){
+  const list=players.filter(p=>!me||p.id!==me.id).map(p=>({id:p.id,...p.data()}));
+  if(me)list.push({id:me.id,name:me.name,...me.counts,total:me.total});
+  list.sort((a,b)=>(b.total||0)-(a.total||0)||String(a.name).localeCompare(String(b.name)));
+  $('rows').innerHTML=list.map(p=>`<tr class="${me&&p.id===me.id?'me':''}"><td title="${esc(p.name)}">${esc(p.name)}</td>${REGIONS.map(k=>`<td>${p[k]||0}</td>`).join('')}<td class="total">${p.total||0}</td></tr>`).join('');
+  $('empty').hidden=list.length>0;
+  $('pcount').textContent=`${list.length}명 참여`;
+}
+
+function showNotice(msg){$('notice').textContent=msg;$('notice').hidden=false}
+
+// ---- 입장 ----
+async function enter(name){
+  name=name.trim().slice(0,12);if(!name)return;
+  store.set('mh_name',name);
+  me={id:store.get('mh_pid')||'local',name,counts:{},total:0};
+  $('gate').hidden=true;$('who').textContent=`${name} 님 접속 중`;
+  if(fs){
+    try{
+      const col=fs.collection('players');let snap=null;
+      const pid=store.get('mh_pid');
+      if(pid){const s=await col.doc(pid).get();if(s.exists&&s.data().name===name)snap=s}
+      if(!snap){const q=await col.where('name','==',name).limit(1).get();if(!q.empty)snap=q.docs[0]}
+      if(snap){docRef=col.doc(snap.id);const d=snap.data();me.id=snap.id;for(const k of REGIONS)me.counts[k]=d[k]||0;me.total=d.total||0}
+      else{docRef=col.doc();await docRef.set({name,total:0,at:Date.now()});me.id=docRef.id}
+      store.set('mh_pid',me.id);
+    }catch(e){showNotice('명부에 등록하지 못했어요. 밀기는 되지만 기록이 남지 않을 수 있어요.');}
+  }
+  renderBoard();renderPos();
+}
+$('gateform').addEventListener('submit',e=>{e.preventDefault();enter($('name').value)});
+$('rename').addEventListener('click',()=>{me=null;$('gate').hidden=false;$('name').value='';$('name').focus()});
+const savedName=store.get('mh_name');if(savedName)$('name').value=savedName;
+
+// ---- Firebase 연결 ----
+// ▼▼ 여기에 Firebase 콘솔 > 프로젝트 설정 > 내 앱 > SDK 설정의 firebaseConfig를 붙여넣으세요 ▼▼
+const firebaseConfig = {
+  apiKey: "AIzaSyAzflPvr4uIDmmSfAOlszY_PVBfUxdF8Qo",
+  authDomain: "mhbank-4d339.firebaseapp.com",
+  projectId: "mhbank-4d339"
+};
+// ▲▲ 여기까지 ▲▲
+renderPos();renderBoard();
+let fs=null;
+try{
+  if(!firebaseConfig.projectId)throw new Error('config');
+  firebase.initializeApp(firebaseConfig);fs=firebase.firestore();
+  db={doc:p=>fs.doc(p),collection:p=>fs.collection(p)};
+}catch(e){showNotice('Firebase 설정이 비어 있어 혼자만 보이는 연습 모드예요.');}
+if(fs){
+  fs.doc('state/position').onSnapshot(s=>{
+    if(!s.exists||pending||writing)return;const d=s.data();
+    if(typeof d.x==='number'){pos=[d.x,d.y];lastRegion=d.lastRegion||lastRegion;lastBy=d.lastBy||'';renderPos()}
+  },e=>showNotice('위치 동기화가 끊겼어요. 새로고침해 주세요.'));
+  fs.collection('players').orderBy('total','desc').limit(200).onSnapshot(s=>{players=s.docs;renderBoard()},e=>showNotice('집계표를 불러오지 못했어요. Firestore 규칙을 확인해 주세요.'));
+  if(me&&!docRef)enter(me.name);
+}
+</script>
+</body>
+</html>
